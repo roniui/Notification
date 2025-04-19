@@ -22,9 +22,10 @@
   <div>
     <button id="notify-btn">Enable Notifications</button>
   </div>
-<script>
-  // Firebase config
-  const firebaseConfig = {
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
   apiKey: "AIzaSyCu3XdC711lbMBeb_ouDiLRr-E-NFutRyA",
   authDomain: "notification-da251.firebaseapp.com",
   projectId: "notification-da251",
@@ -32,112 +33,108 @@
   messagingSenderId: "688852017288",
   appId: "1:688852017288:web:ec2103ebc3d3a9dac9ff3d",
   measurementId: "G-013XN47PE5"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const messaging = firebase.messaging();
-
-  let currentUser = null;
-  let pendingToken = null;
-
-  function saveTokenToFirestore(token) {
-    const data = {
-      token,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    if (currentUser) {
-      data.email = currentUser.email;
-      db.collection("fcmTokens").doc(currentUser.uid).set(data)
-        .then(() => console.log("Token saved for signed-in user."))
-        .catch(err => console.error("Error saving token:", err));
-    } else {
-      db.collection("fcmTokens").add(data)
-        .then(() => console.log("Token saved for anonymous user."))
-        .catch(err => console.error("Error saving anonymous token:", err));
-    }
-  }
 
-  function initFCM() {
-    messaging.getToken({
-      vapidKey: "BE7KD-NSToic5I0YWcwlGZhX59gXBZQz_wHlhBsJjeh4ODuU3q-7G9DdjYNkooPC6bjrOzCO2wBPFdtTmuXnYG0"
-    })
-    .then(token => {
-      if (token) {
-        console.log("FCM Token:", token);
-        // Save token if user state is known
-        if (currentUser !== undefined) {
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const messaging = firebase.messaging();
+
+    let swRegistration = null;
+
+    function saveTokenToFirestore(token) {
+      const user = auth.currentUser;
+      const data = {
+        token,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (user) {
+        data.email = user.email;
+        db.collection("fcmTokens").doc(user.uid).set(data)
+          .then(() => console.log("Token saved for signed-in user."))
+          .catch(err => console.error("Error saving token:", err));
+      } else {
+        db.collection("fcmTokens").add(data)
+          .then(() => console.log("Token saved for anonymous user."))
+          .catch(err => console.error("Error saving anonymous token:", err));
+      }
+    }
+
+    function initFCM() {
+      if (!swRegistration) {
+        console.warn("Service Worker not registered yet.");
+        return;
+      }
+
+      messaging.getToken({
+        vapidKey: "BE7KD-NSToic5I0YWcwlGZhX59gXBZQz_wHlhBsJjeh4ODuU3q-7G9DdjYNkooPC6bjrOzCO2wBPFdtTmuXnYG0",
+        serviceWorkerRegistration: swRegistration
+      }).then(token => {
+        if (token) {
+          console.log("FCM Token:", token);
           saveTokenToFirestore(token);
         } else {
-          pendingToken = token; // Save later once auth state known
+          console.warn("No FCM token available.");
         }
-      } else {
-        console.warn("No FCM token available.");
-      }
-    })
-    .catch(err => console.error("FCM token error:", err));
-  }
-
-  messaging.onMessage(payload => {
-    console.log("Foreground message:", payload);
-    new Notification(payload.notification?.title || "Resistor Hub", {
-      body: payload.notification?.body || "",
-      icon: "./icons/icon-512.png"
-    });
-  });
-
-  auth.onAuthStateChanged(user => {
-    currentUser = user; // update global reference
-    if (user) {
-      console.log("User signed in:", user.email);
-      document.getElementById("login-btn").style.display = "none";
-      document.getElementById("logout-btn").style.display = "block";
-    } else {
-      console.log("No user signed in.");
-      document.getElementById("login-btn").style.display = "block";
-      document.getElementById("logout-btn").style.display = "none";
+      }).catch(err => console.error("FCM token error:", err));
     }
 
-    // Save the pending token once user info is ready
-    if (pendingToken) {
-      saveTokenToFirestore(pendingToken);
-      pendingToken = null;
-    }
-  });
+    messaging.onMessage(payload => {
+      console.log("Foreground message:", payload);
+      new Notification(payload.notification?.title || "Resistor Hub", {
+        body: payload.notification?.body || "",
+        icon: "./icons/icon-512.png"
+      });
+    });
 
-  document.getElementById("login-btn").addEventListener("click", () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-      .then(result => console.log("User logged in:", result.user.email))
-      .catch(error => console.error("Login error:", error));
-  });
-
-  document.getElementById("logout-btn").addEventListener("click", () => {
-    auth.signOut()
-      .then(() => console.log("User logged out."))
-      .catch(error => console.error("Logout error:", error));
-  });
-
-  document.getElementById("notify-btn").addEventListener("click", () => {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        console.log("Notification permission granted via button.");
-        initFCM();
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        console.log("User signed in:", user.email);
+        document.getElementById("login-btn").style.display = "none";
+        document.getElementById("logout-btn").style.display = "block";
       } else {
-        console.warn("Notification permission denied.");
+        console.log("No user signed in.");
+        document.getElementById("login-btn").style.display = "block";
+        document.getElementById("logout-btn").style.display = "none";
       }
     });
-  });
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register("/Notification/firebase-messaging-sw.js")
-      .then(registration => {
-        console.log("Service Worker registered:", registration);
-      })
-      .catch(err => console.error("Service Worker registration failed:", err));
-  }
-</script>
+    document.getElementById("login-btn").addEventListener("click", () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(result => console.log("User logged in:", result.user.email))
+        .catch(error => console.error("Login error:", error));
+    });
+
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      auth.signOut()
+        .then(() => console.log("User logged out."))
+        .catch(error => console.error("Logout error:", error));
+    });
+
+    document.getElementById("notify-btn").addEventListener("click", () => {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          console.log("Notification permission granted.");
+          initFCM();
+        } else {
+          console.warn("Notification permission denied.");
+        }
+      });
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register("/Notification/firebase-messaging-sw.js")
+        .then(reg => {
+          console.log("Service Worker registered:", reg);
+          swRegistration = reg;
+          messaging.useServiceWorker(reg);
+        })
+        .catch(err => {
+          console.error("Service Worker registration failed:", err);
+        });
+    }
+  </script>
 </body>
 </html>
