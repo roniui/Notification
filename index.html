@@ -18,7 +18,9 @@
     <button id="login-btn">Login with Google</button>
     <button id="logout-btn" style="display:none;">Logout</button>
   </div>
-
+<div>
+    <button id="notify-btn">Enable Notifications</button>
+</div>
   <script>
   // Firebase config
   const firebaseConfig = {
@@ -138,7 +140,16 @@
       console.error("Error logging out:", error);
     });
   });
-
+document.getElementById("notify-btn").addEventListener("click", () => {
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      console.log("Notification permission granted via manual button.");
+      initFCM();
+    } else {
+      console.warn("Permission denied via manual button.");
+    }
+  });
+});
   // Register Service Worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register("./firebase-messaging-sw.js")
