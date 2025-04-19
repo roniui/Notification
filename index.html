@@ -152,7 +152,7 @@ document.getElementById("notify-btn").addEventListener("click", () => {
 });
   // Register Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register("./firebase-messaging-sw.js")
+    navigator.serviceWorker.register("/Notification/firebase-messaging-sw.js")
       .then(reg => {
         console.log("Service Worker registered:", reg);
         messaging.useServiceWorker(reg);
