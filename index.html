@@ -35,14 +35,13 @@
   measurementId: "G-013XN47PE5"
     };
 
-    // Initialize Firebase
+        // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
     const messaging = firebase.messaging();
 
-    let swRegistration = null;
-
+    // Save FCM token to Firestore
     function saveTokenToFirestore(token) {
       const user = auth.currentUser;
       const data = {
@@ -61,25 +60,23 @@
       }
     }
 
+    // Initialize FCM and get token
     function initFCM() {
-      if (!swRegistration) {
-        console.warn("Service Worker not registered yet.");
-        return;
-      }
-
       messaging.getToken({
-        vapidKey: "BE7KD-NSToic5I0YWcwlGZhX59gXBZQz_wHlhBsJjeh4ODuU3q-7G9DdjYNkooPC6bjrOzCO2wBPFdtTmuXnYG0",
-        serviceWorkerRegistration: swRegistration
-      }).then(token => {
+        vapidKey: "BE7KD-NSToic5I0YWcwlGZhX59gXBZQz_wHlhBsJjeh4ODuU3q-7G9DdjYNkooPC6bjrOzCO2wBPFdtTmuXnYG0"
+      })
+      .then(token => {
         if (token) {
           console.log("FCM Token:", token);
           saveTokenToFirestore(token);
         } else {
           console.warn("No FCM token available.");
         }
-      }).catch(err => console.error("FCM token error:", err));
+      })
+      .catch(err => console.error("FCM token error:", err));
     }
 
+    // Handle foreground messages
     messaging.onMessage(payload => {
       console.log("Foreground message:", payload);
       new Notification(payload.notification?.title || "Resistor Hub", {
@@ -88,6 +85,7 @@
       });
     });
 
+    // Authentication state observer
     auth.onAuthStateChanged(user => {
       if (user) {
         console.log("User signed in:", user.email);
@@ -100,6 +98,7 @@
       }
     });
 
+    // Login with Google
     document.getElementById("login-btn").addEventListener("click", () => {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
@@ -107,16 +106,18 @@
         .catch(error => console.error("Login error:", error));
     });
 
+    // Logout
     document.getElementById("logout-btn").addEventListener("click", () => {
       auth.signOut()
         .then(() => console.log("User logged out."))
         .catch(error => console.error("Logout error:", error));
     });
 
+    // Enable notifications
     document.getElementById("notify-btn").addEventListener("click", () => {
       Notification.requestPermission().then(permission => {
         if (permission === "granted") {
-          console.log("Notification permission granted.");
+          console.log("Notification permission granted via button.");
           initFCM();
         } else {
           console.warn("Notification permission denied.");
@@ -124,16 +125,14 @@
       });
     });
 
+    // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register("./firebase-messaging-sw.js")
-        .then(reg => {
-          console.log("Service Worker registered:", reg);
-          swRegistration = reg;
-          messaging.useServiceWorker(reg);
+        .then(registration => {
+          console.log("Service Worker registered:", registration);
+          messaging.useServiceWorker(registration);
         })
-        .catch(err => {
-          console.error("Service Worker registration failed:", err);
-        });
+        .catch(err => console.error("Service Worker registration failed:", err));
     }
   </script>
 </body>
