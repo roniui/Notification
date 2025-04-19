@@ -19,6 +19,6 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body, icon } = payload.notification;
   self.registration.showNotification(title, {
     body,
-    icon: icon || "/icons/icon-512.png"
+    icon: icon || "./icons/icon-512.png"
   });
 });
